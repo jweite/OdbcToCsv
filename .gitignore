@@ -1,4 +1,6 @@
 /.vs
+/packages
 /OdbcToCsv/bin
 /OdbcToCsv/obj
+/OdbcToCsv/OdbcToCsv.csproj.user
 

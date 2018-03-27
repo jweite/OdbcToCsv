@@ -6,6 +6,8 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Data.Odbc;
 using CsvHelper;
+using CommandLine;
+using CommandLine.Text;
 
 namespace OdbcToCsv
 {
@@ -13,19 +15,29 @@ namespace OdbcToCsv
     {
         static void Main(string[] args)
         {
-            TextWriter writer = File.CreateText(@"c:\temp\brap.csv");
+            Options options;
+
+            options = new Options();
+            CommandLine.Parser.Default.ParseArguments(args, options);
+            if (options.OutputFileName == null || options.ConnectionString == null || options.Query == null)
+            {
+                Console.WriteLine(options.GetUsage());
+                return;
+            }
+
+            DateTime startTime = DateTime.Now;
+
+            TextWriter writer = File.CreateText(options.OutputFileName);
             CsvHelper.CsvWriter csvWriter = new CsvWriter(writer);
             csvWriter.Configuration.Delimiter = "\t";
 
-            string connectionString = @"Driver={SQL Server Native Client 11.0}; Server=localhost; Database=StarWars;Trusted_Connection=Yes";
-            string query = "select * FROM [StarWars].[dbo].[Characters]";
-
-            using (OdbcConnection connection = new OdbcConnection(connectionString))
+            using (OdbcConnection connection = new OdbcConnection(options.ConnectionString))
             {
-                OdbcCommand command = new OdbcCommand(query, connection);
+                OdbcCommand command = new OdbcCommand(options.Query, connection);
 
                 connection.Open();
                 OdbcDataReader reader = command.ExecuteReader();
+                int rowsImported = 0;
                 while ( reader.Read() )
                 {
                     for (int i = 0; i < reader.FieldCount; ++i)
@@ -44,7 +56,8 @@ namespace OdbcToCsv
                                 strCol = @"\N";
                                 break;
                             case "DateTime":
-                                strCol = col.ToString();
+                                strCol = ((DateTime)col).ToString("yyyy-MM-dd hh:mm:ss");
+                                isString = true;
                                 break;
                             default:
                                 strCol = col.ToString();
@@ -54,9 +67,36 @@ namespace OdbcToCsv
                         csvWriter.WriteField(strCol, isString);
                     }
                     csvWriter.NextRecord();
+                    ++rowsImported;
+                    if (rowsImported % 1000 == 0)
+                    {
+                        Console.WriteLine("{0} rows imported...", rowsImported);
+                    }
                 }
                 writer.Close();
+                Console.WriteLine("{0} rows imported.", rowsImported);
+                Console.WriteLine("Started {0}, Finished {1}.  RunTime {2}", startTime.ToString(), DateTime.Now.ToString(), DateTime.Now.Subtract(startTime).ToString() );
             }
         }
     }
+
+    class Options
+    {
+        [Option('f', "file", Required = true, HelpText = "Path/filename to export to.")]
+        public string OutputFileName { get; set; }
+
+        [Option('c', "connectionString", Required = true, HelpText = "Connection string for DB to export from.")]
+        public string ConnectionString { get; set; }
+
+        [Option('q', "query", Required = true, HelpText = "Query to export data with.")]
+        public string Query { get; set; }
+
+        public string GetUsage()
+        {
+            return HelpText.AutoBuild(this,
+              (HelpText current) => HelpText.DefaultParsingErrorsHandler(this, current));
+        }
+
+    }
+
 }
