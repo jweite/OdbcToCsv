@@ -29,7 +29,9 @@ namespace OdbcToCsv
 
             TextWriter writer = File.CreateText(options.OutputFileName);
             CsvHelper.CsvWriter csvWriter = new CsvWriter(writer);
-            csvWriter.Configuration.Delimiter = "\t";
+            csvWriter.Configuration.Delimiter = options.FieldDelimiter == "\\t"? "\t" : options.FieldDelimiter == null ? "," : options.FieldDelimiter;
+
+            string nullPlaceholder = options.NullPlaceholder == null ? "" : options.NullPlaceholder;
 
             using (OdbcConnection connection = new OdbcConnection(options.ConnectionString))
             {
@@ -53,7 +55,7 @@ namespace OdbcToCsv
                                 isString = true;
                                 break;
                             case "DBNull":
-                                strCol = @"\N";
+                                strCol = nullPlaceholder;
                                 break;
                             case "DateTime":
                                 strCol = ((DateTime)col).ToString("yyyy-MM-dd hh:mm:ss");
@@ -82,7 +84,7 @@ namespace OdbcToCsv
 
     class Options
     {
-        [Option('f', "file", Required = true, HelpText = "Path/filename to export to.")]
+        [Option('o', "file", Required = true, HelpText = "Path/filename to export to.")]
         public string OutputFileName { get; set; }
 
         [Option('c', "connectionString", Required = true, HelpText = "Connection string for DB to export from.")]
@@ -90,6 +92,12 @@ namespace OdbcToCsv
 
         [Option('q', "query", Required = true, HelpText = "Query to export data with.")]
         public string Query { get; set; }
+
+        [Option('f', "fieldDelimiter", Required = false, HelpText = "string to put between fields.")]
+        public string FieldDelimiter { get; set; }
+
+        [Option('n', "nullPlaceholder", Required = false, HelpText = "Text to output for null columns.")]
+        public string NullPlaceholder { get; set; }
 
         public string GetUsage()
         {
